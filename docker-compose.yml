@@ -1,0 +1,57 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://dpsg:${DB_PASSWORD}@db:5432/dpsg_kurse
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID}
+      - AZURE_AD_CLIENT_SECRET=${AZURE_AD_CLIENT_SECRET}
+      - AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://kurse.dpsgonline.de}
+      - NEXTAUTH_SECRET=${AUTH_SECRET}
+      - EMAIL_SENDER=${EMAIL_SENDER:-kurse@dpsg1300.de}
+      - TODOIST_CLIENT_ID=${TODOIST_CLIENT_ID:-}
+      - TODOIST_CLIENT_SECRET=${TODOIST_CLIENT_SECRET:-}
+    volumes:
+      - uploads:/app/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kurse.rule=Host(`kurse.dpsgonline.de`)"
+      - "traefik.http.routers.kurse.entrypoints=websecure"
+      - "traefik.http.routers.kurse.tls.certresolver=letsencrypt"
+      - "traefik.http.services.kurse.loadbalancer.server.port=3000"
+    networks:
+      - internal
+      - web
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=dpsg
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=dpsg_kurse
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dpsg -d dpsg_kurse"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  internal:
+  web:
+    external: true
+    name: dpsg-reisekosten_web

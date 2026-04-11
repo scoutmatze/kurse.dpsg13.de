@@ -1,0 +1,26 @@
+{
+  "name": "DPSG Kursmanagement",
+  "short_name": "Kurse",
+  "description": "Kursplanung, Kalkulation und Anmeldung für DPSG-Kurse",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#faf9f6",
+  "theme_color": "#003056",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "de"
+}
