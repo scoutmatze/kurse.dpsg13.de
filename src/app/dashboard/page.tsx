@@ -39,6 +39,16 @@ export default function DashboardPage() {
   const [showModal, setShowModal] = useState(false);
   const [newKurs, setNewKurs] = useState({ name: "", ort: "", start_datum: "", end_datum: "", max_teilnehmende: 25 });
   const [creating, setCreating] = useState(false);
+  const [todoistConnected, setTodoistConnected] = useState(false);
+
+  useEffect(() => {
+    // Check URL params for todoist status
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("todoist") === "connected") {
+      setTodoistConnected(true);
+      window.history.replaceState({}, "", "/dashboard");
+    }
+  }, []);
   const router = useRouter();
 
   useEffect(() => {
@@ -116,6 +126,10 @@ export default function DashboardPage() {
         </nav>
 
         <div className="px-3 py-4 border-t border-dpsg-gray-100">
+          <a href="/api/todoist"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-dpsg-gray-600 hover:bg-dpsg-gray-50">
+            <Settings className="h-4 w-4" /> Todoist verbinden
+          </a>
           <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-dpsg-gray-600 hover:bg-dpsg-gray-50">
             <Settings className="h-4 w-4" /> Einstellungen
           </button>

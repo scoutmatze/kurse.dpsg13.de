@@ -83,7 +83,8 @@ export default function AnmeldungenAdminPage() {
             className="flex items-center gap-1.5 rounded-lg bg-dpsg-gray-100 px-3 py-2 text-xs font-bold text-dpsg-gray-700 hover:bg-dpsg-gray-200 transition-colors">
             <Copy className="h-3.5 w-3.5" /> Anmeldelink kopieren
           </button>
-          <button className="flex items-center gap-1.5 rounded-lg bg-dpsg-gray-100 px-3 py-2 text-xs font-bold text-dpsg-gray-700 hover:bg-dpsg-gray-200 transition-colors">
+          <button onClick={() => window.open(`/api/anmeldung/${kursId}/export`, "_blank")}
+            className="flex items-center gap-1.5 rounded-lg bg-dpsg-gray-100 px-3 py-2 text-xs font-bold text-dpsg-gray-700 hover:bg-dpsg-gray-200 transition-colors">
             <Download className="h-3.5 w-3.5" /> CSV Export
           </button>
         </div>

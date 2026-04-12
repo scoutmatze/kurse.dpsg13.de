@@ -18,6 +18,7 @@ const TABS = [
   { id: "aufgaben", label: "Aufgaben", icon: ClipboardList, href: "/aufgaben" },
   { id: "team", label: "Team", icon: UserPlus, href: "/team" },
   { id: "dateien", label: "Dateien", icon: FolderOpen, href: "/dateien" },
+  { id: "einstellungen", label: "Einstellungen", icon: Settings, href: "/einstellungen" },
 ];
 
 interface KursInfo {
@@ -34,6 +35,42 @@ export default function KursLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const [kurs, setKurs] = useState<KursInfo | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+
+  const STATUS_FLOW: Record<string, { next: string; label: string; color: string }> = {
+    planung: { next: "ausgeschrieben", label: "Ausschreiben", color: "bg-green-600 hover:bg-green-700" },
+    ausgeschrieben: { next: "laufend", label: "Kurs starten", color: "bg-dpsg-cyan hover:bg-dpsg-cyan/90" },
+    laufend: { next: "abgeschlossen", label: "Abschließen", color: "bg-dpsg-gray-600 hover:bg-dpsg-gray-700" },
+    abgeschlossen: { next: "archiviert", label: "Archivieren", color: "bg-dpsg-gray-400 hover:bg-dpsg-gray-500" },
+  };
+
+  const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
+    planung: { label: "Planung", cls: "bg-amber-100 text-amber-700" },
+    ausgeschrieben: { label: "Ausgeschrieben", cls: "bg-green-100 text-green-700" },
+    laufend: { label: "Laufend", cls: "bg-blue-100 text-blue-700" },
+    abgeschlossen: { label: "Abgeschlossen", cls: "bg-dpsg-gray-100 text-dpsg-gray-600" },
+    archiviert: { label: "Archiviert", cls: "bg-dpsg-gray-100 text-dpsg-gray-400" },
+  };
+
+  async function changeStatus() {
+    if (!kurs) return;
+    const flow = STATUS_FLOW[kurs.status];
+    if (!flow) return;
+    if (!confirm(`Kurs-Status wirklich auf "${flow.next}" ändern?`)) return;
+    setStatusLoading(true);
+    try {
+      const res = await fetch(`/api/kurse/${params.id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: flow.next }),
+      });
+      if (res.ok) {
+        setKurs({ ...kurs, status: flow.next });
+      }
+    } finally {
+      setStatusLoading(false);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/kurse/${params.id}`)
@@ -55,11 +92,26 @@ export default function KursLayout({ children }: { children: React.ReactNode }) 
               <ArrowLeft className="h-3 w-3" /> Kurse
             </button>
           </div>
-          <h1 className="text-xl font-bold">{kurs?.name || "Kurs laden..."}</h1>
-          {kurs && (
-            <div className="text-xs text-white/60 mt-1">
-              {kurs.ort || "Ort offen"} &middot; {kurs.start_datum ? new Date(kurs.start_datum).toLocaleDateString("de-DE") : "Datum offen"}
+          <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold">{kurs?.name || "Kurs laden..."}</h1>
+              {kurs && STATUS_BADGES[kurs.status] && (
+                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold ${STATUS_BADGES[kurs.status].cls}`}>
+                  {STATUS_BADGES[kurs.status].label}
+                </span>
+              )}
             </div>
+          {kurs && (
+            <>
+              {STATUS_FLOW[kurs.status] && (
+              <button onClick={changeStatus} disabled={statusLoading}
+                className={`px-3 py-1 rounded-lg text-xs font-bold text-white transition-colors ${STATUS_FLOW[kurs.status].color} disabled:opacity-50`}>
+                {statusLoading ? "..." : STATUS_FLOW[kurs.status].label + " →"}
+              </button>
+            )}
+              <div className="text-xs text-white/60 mt-1">
+                {kurs.ort || "Ort offen"} &middot; {kurs.start_datum ? new Date(kurs.start_datum).toLocaleDateString("de-DE") : "Datum offen"}
+              </div>
+            </>
           )}
         </div>
         <div className="h-[3px] bg-dpsg-red" />
