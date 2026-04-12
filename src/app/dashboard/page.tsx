@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus, LogOut, Calculator, Calendar, Users, ClipboardList,
   Shield, GraduationCap, ChevronRight, Settings, X, Loader2,
-  UserPlus
+  UserPlus, Copy, AlertTriangle, TrendingUp, Check
 } from "lucide-react";
 
 interface Kurs {
@@ -39,6 +39,11 @@ export default function DashboardPage() {
   const [showModal, setShowModal] = useState(false);
   const [newKurs, setNewKurs] = useState({ name: "", ort: "", start_datum: "", end_datum: "", max_teilnehmende: 25 });
   const [creating, setCreating] = useState(false);
+  const [showClone, setShowClone] = useState<number | null>(null);
+  const [cloneName, setCloneName] = useState("");
+  const [cloneOpts, setCloneOpts] = useState({ clone_aufgaben: true, clone_team: true, clone_kalkulation: true, clone_programm: true });
+  const [cloning, setCloning] = useState(false);
+  const [stats, setStats] = useState<any>(null);
   const [todoistConnected, setTodoistConnected] = useState(false);
 
   useEffect(() => {
@@ -53,7 +58,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadKurse();
+    loadStats();
   }, []);
+
+  async function loadStats() {
+    try {
+      const res = await fetch("/api/dashboard");
+      if (res.ok) setStats(await res.json());
+    } catch {}
+  }
 
   function loadKurse() {
     fetch("/api/kurse")
@@ -85,6 +98,26 @@ export default function DashboardPage() {
       }
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleClone() {
+    if (!showClone || !cloneName.trim()) return;
+    setCloning(true);
+    try {
+      const res = await fetch(`/api/kurse/${showClone}/clone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: cloneName, ...cloneOpts }),
+      });
+      if (res.ok) {
+        const kurs = await res.json();
+        setShowClone(null);
+        setCloneName("");
+        router.push(`/kurs/${kurs.id}/kalkulation`);
+      }
+    } finally {
+      setCloning(false);
     }
   }
 
@@ -153,6 +186,52 @@ export default function DashboardPage() {
           </button>
         </div>
 
+        {/* Stats Widgets */}
+        {stats && (
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="rounded-xl border border-dpsg-gray-200 bg-white shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <GraduationCap className="h-4 w-4 text-dpsg-blue" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-dpsg-gray-400">Aktive Kurse</span>
+              </div>
+              <div className="text-2xl font-bold text-dpsg-gray-900">{stats.aktive_kurse}</div>
+            </div>
+            <div className="rounded-xl border border-dpsg-gray-200 bg-white shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-dpsg-blue" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-dpsg-gray-400">Anmeldungen</span>
+              </div>
+              <div className="text-2xl font-bold text-dpsg-gray-900">{stats.anmeldungen}</div>
+            </div>
+            <div className="rounded-xl border border-dpsg-gray-200 bg-white shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <ClipboardList className="h-4 w-4 text-dpsg-blue" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-dpsg-gray-400">Offene Aufgaben</span>
+              </div>
+              <div className="text-2xl font-bold text-dpsg-gray-900">{stats.offene_aufgaben}</div>
+              {stats.ueberfaellige_aufgaben > 0 && (
+                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-red-600">
+                  <AlertTriangle className="h-3 w-3" /> {stats.ueberfaellige_aufgaben} überfällig
+                </span>
+              )}
+            </div>
+            <div className="rounded-xl border border-dpsg-gray-200 bg-white shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="h-4 w-4 text-dpsg-blue" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-dpsg-gray-400">Nächster Kurs</span>
+              </div>
+              {stats.naechster_kurs ? (
+                <>
+                  <div className="text-sm font-bold text-dpsg-gray-900 truncate">{stats.naechster_kurs.name}</div>
+                  <div className="text-xs text-dpsg-gray-500">{formatDate(stats.naechster_kurs.start_datum)}</div>
+                </>
+              ) : (
+                <div className="text-xs text-dpsg-gray-400">Keiner geplant</div>
+              )}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-dpsg-gray-400" />
@@ -191,6 +270,11 @@ export default function DashboardPage() {
                         {badge.label}
                       </span>
                       <span className="text-xs text-dpsg-gray-400">{kurs.tn_count} TN</span>
+                      <button onClick={e => { e.stopPropagation(); setShowClone(kurs.id); setCloneName(kurs.name + " (Kopie)"); }}
+                        className="p-1 rounded text-dpsg-gray-300 hover:text-dpsg-blue hover:bg-dpsg-blue/10 transition-colors"
+                        title="Kurs als Vorlage klonen">
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
                       <ChevronRight className="h-4 w-4 text-dpsg-gray-300" />
                     </div>
                   </div>
@@ -204,6 +288,54 @@ export default function DashboardPage() {
           Deutsche Pfadfinder*innenschaft Sankt Georg &middot; Gut Pfad!
         </p>
       </main>
+
+      {/* Clone Modal */}
+      {showClone && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="rounded-xl bg-white shadow-lg w-full max-w-md">
+            <div className="flex items-center justify-between border-b border-dpsg-gray-100 px-5 py-4">
+              <h2 className="text-base font-bold text-dpsg-gray-900">Kurs als Vorlage klonen</h2>
+              <button onClick={() => setShowClone(null)} className="text-dpsg-gray-400"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-dpsg-gray-600">Name des neuen Kurses *</label>
+                <input value={cloneName} onChange={e => setCloneName(e.target.value)}
+                  className="w-full rounded-lg border border-dpsg-gray-200 px-3 py-2 text-sm focus:border-dpsg-blue focus:outline-none focus:ring-2 focus:ring-dpsg-blue/20" autoFocus />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-dpsg-gray-600">Was übernehmen?</label>
+                <div className="space-y-2">
+                  {[
+                    { key: "clone_aufgaben", label: "Aufgaben (Status wird zurückgesetzt)" },
+                    { key: "clone_team", label: "Team-Rollen" },
+                    { key: "clone_kalkulation", label: "Kalkulation & Budget" },
+                    { key: "clone_programm", label: "Tagesplan / Programm" },
+                  ].map(opt => (
+                    <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={(cloneOpts as any)[opt.key]}
+                        onChange={e => setCloneOpts({ ...cloneOpts, [opt.key]: e.target.checked })}
+                        className="accent-dpsg-blue w-4 h-4" />
+                      <span className="text-sm text-dpsg-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg bg-dpsg-blue/5 border border-dpsg-blue/20 p-3 text-xs text-dpsg-gray-600">
+                Anmeldungen und Dateien werden <strong>nicht</strong> übernommen. Datum wird leer gelassen.
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-dpsg-gray-100 px-5 py-4">
+              <button onClick={() => setShowClone(null)}
+                className="rounded-lg bg-dpsg-gray-100 px-4 py-2 text-xs font-bold text-dpsg-gray-700">Abbrechen</button>
+              <button onClick={handleClone} disabled={!cloneName.trim() || cloning}
+                className="rounded-lg bg-dpsg-blue px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+                {cloning ? "Wird geklont..." : "Klonen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Modal */}
       {showModal && (
