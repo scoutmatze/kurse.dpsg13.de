@@ -47,29 +47,28 @@ export async function POST(req: NextRequest) {
   }
 
   // Get aufgaben to sync
-  const aufgaben = await query(
-    `SELECT * FROM aufgaben WHERE kurs_id = $1 ${aufgabe_ids ? "AND id = ANY($2)" : ""} AND todoist_id IS NULL AND status != 'erledigt'`,
+  // Sync parent tasks first, then subtasks
+  const parents = await query(
+    `SELECT * FROM aufgaben WHERE kurs_id = $1 AND parent_id IS NULL AND todoist_id IS NULL AND status != 'erledigt' ${aufgabe_ids ? "AND id = ANY($2)" : ""}`,
     aufgabe_ids ? [kurs_id, aufgabe_ids] : [kurs_id]
   );
 
   const synced: number[] = [];
-  for (const a of aufgaben.rows) {
+
+  for (const a of parents.rows) {
     try {
-      const priority = { niedrig: 1, mittel: 2, hoch: 3, dringend: 4 }[a.prioritaet as string] || 2;
+      const priority = ({ niedrig: 1, mittel: 2, hoch: 3, dringend: 4 } as Record<string, number>)[a.prioritaet] || 2;
 
       const taskRes = await fetch("https://api.todoist.com/rest/v2/tasks", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           content: a.titel,
           description: a.beschreibung || "",
           project_id: projectId,
           priority,
           due_date: a.deadline || undefined,
-          labels: [a.phase || "vorbereitung"],
+          labels: [a.phase || "allgemein"].filter(Boolean),
         }),
       });
 
@@ -77,6 +76,34 @@ export async function POST(req: NextRequest) {
         const task = await taskRes.json();
         await query("UPDATE aufgaben SET todoist_id = $1 WHERE id = $2", [task.id, a.id]);
         synced.push(a.id);
+
+        // Sync subtasks
+        const subs = await query(
+          "SELECT * FROM aufgaben WHERE parent_id = $1 AND todoist_id IS NULL AND status != 'erledigt'",
+          [a.id]
+        );
+
+        for (const sub of subs.rows) {
+          try {
+            const subRes = await fetch("https://api.todoist.com/rest/v2/tasks", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content: sub.titel,
+                description: sub.beschreibung || "",
+                project_id: projectId,
+                parent_id: task.id,
+                due_date: sub.deadline || undefined,
+              }),
+            });
+
+            if (subRes.ok) {
+              const subTask = await subRes.json();
+              await query("UPDATE aufgaben SET todoist_id = $1 WHERE id = $2", [subTask.id, sub.id]);
+              synced.push(sub.id);
+            }
+          } catch {}
+        }
       }
     } catch {}
   }

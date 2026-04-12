@@ -218,6 +218,16 @@ CREATE TABLE IF NOT EXISTS anmeldungen (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Aufgaben-Buckets (anpassbare Spalten)
+CREATE TABLE IF NOT EXISTS buckets (
+  id SERIAL PRIMARY KEY,
+  kurs_id INTEGER REFERENCES kurse(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  farbe VARCHAR(20) DEFAULT '#003056',
+  sortierung INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Aufgaben
 CREATE TABLE IF NOT EXISTS aufgaben (
   id SERIAL PRIMARY KEY,

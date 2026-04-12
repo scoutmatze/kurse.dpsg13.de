@@ -25,29 +25,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Insert default posten
     const kalkId = kalk.rows[0].id;
     const defaults = [
-      ["ausgabe", "unterkunft", "Übernachtung (automatisch)", 0, true, "ue"],
-      ["ausgabe", "unterkunft", "Verpflegung (automatisch)", 0, true, "vp"],
-      ["ausgabe", "material", "Bastelmaterial", 150, false, null],
-      ["ausgabe", "material", "Druckkosten", 80, false, null],
-      ["ausgabe", "reise", "Fahrtkosten Team", 200, false, null],
-      ["einnahme", "zuschuss", "Zuschuss KJR", 0, false, null],
-      ["einnahme", "zuschuss", "Zuschuss BJR", 0, false, null],
-      ["einnahme", "eigenanteil", "Eigenanteil DV", 0, false, null],
+      ["ausgabe", "reise", "Fahrtkosten Team (Vorbereitung)", 100, false, null, "vorbereitung"],
+      ["ausgabe", "material", "Druckkosten Einladung/Flyer", 80, false, null, "vorbereitung"],
+      ["ausgabe", "unterkunft", "Übernachtung (automatisch)", 0, true, "ue", "kurs"],
+      ["ausgabe", "unterkunft", "Verpflegung (automatisch)", 0, true, "vp", "kurs"],
+      ["ausgabe", "material", "Bastelmaterial", 150, false, null, "kurs"],
+      ["ausgabe", "reise", "Fahrtkosten Team (Anreise)", 200, false, null, "kurs"],
+      ["ausgabe", "material", "Teilnahmebescheinigungen/Druck", 50, false, null, "nachbereitung"],
+      ["einnahme", "zuschuss", "Zuschuss KJR", 0, false, null, "kurs"],
+      ["einnahme", "zuschuss", "Zuschuss BJR", 0, false, null, "kurs"],
+      ["einnahme", "eigenanteil", "Eigenanteil DV", 0, false, null, "kurs"],
     ];
 
     for (let i = 0; i < defaults.length; i++) {
-      const [typ, kat, bez, betrag, auto, autoTyp] = defaults[i];
+      const [typ, kat, bez, betrag, auto, autoTyp, phase] = defaults[i];
       await query(
-        `INSERT INTO kalkulation_posten (kalkulation_id, typ, kategorie, bezeichnung, betrag, ist_auto, auto_typ, sortierung)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [kalkId, typ, kat, bez, betrag, auto, autoTyp, i]
+        `INSERT INTO kalkulation_posten (kalkulation_id, typ, kategorie, bezeichnung, betrag, ist_auto, auto_typ, sortierung, phase)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [kalkId, typ, kat, bez, betrag, auto, autoTyp, i, phase || "kurs"]
       );
     }
   }
 
   const kalkulation = kalk.rows[0];
   const posten = await query(
-    "SELECT * FROM kalkulation_posten WHERE kalkulation_id = $1 ORDER BY sortierung, id",
+    "SELECT * FROM kalkulation_posten WHERE kalkulation_id = $1 ORDER BY phase, sortierung, id",
     [kalkulation.id]
   );
 
@@ -87,9 +89,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       for (let i = 0; i < body.posten.length; i++) {
         const p = body.posten[i];
         await query(
-          `INSERT INTO kalkulation_posten (kalkulation_id, typ, kategorie, bezeichnung, betrag, ist_auto, auto_typ, sortierung)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [kalkId, p.typ, p.kategorie, p.bezeichnung, p.betrag || 0, p.ist_auto || false, p.auto_typ, i]
+          `INSERT INTO kalkulation_posten (kalkulation_id, typ, kategorie, bezeichnung, betrag, ist_auto, auto_typ, sortierung, phase, nummer, ist_gruppe, parent_posten_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [kalkId, p.typ, p.kategorie, p.bezeichnung, p.betrag || 0, p.ist_auto || false, p.auto_typ, i, p.phase || "kurs", p.nummer || null, p.ist_gruppe || false, p.parent_posten_id || null]
         );
       }
     }

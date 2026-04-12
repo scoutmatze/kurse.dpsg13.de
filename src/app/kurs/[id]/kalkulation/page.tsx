@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import {
   Calculator, Plus, Trash2, ChevronDown, ChevronRight, Euro,
   Users, Home, UtensilsCrossed, Bus, Package, FileText, Download,
   PieChart, TrendingUp, AlertTriangle, Check, Moon, Sun, Utensils,
-  GraduationCap, Coffee, Building2, Save, Loader2, X
+  GraduationCap, Coffee, Building2, Save, Loader2, X, GripVertical, MoreVertical
 } from "lucide-react";
 
 interface Posten {
@@ -17,7 +18,18 @@ interface Posten {
   betrag: number;
   ist_auto: boolean;
   auto_typ?: string | null;
+  phase?: string;
+  parent_posten_id?: number | null;
+  nummer?: string;
+  ist_gruppe?: boolean;
+  _localId?: string;
 }
+
+const AUSGABEN_PHASEN = [
+  { id: "vorbereitung", label: "Vorbereitung", color: "#003056" },
+  { id: "kurs", label: "Kurs", color: "#0891b2" },
+  { id: "nachbereitung", label: "Nachbereitung", color: "#7c3aed" },
+];
 
 interface Kalkulation {
   id: number;
@@ -102,6 +114,11 @@ export default function KalkulationPage() {
   const [autoCalc, setAutoCalc] = useState(true);
   const [manuellerBeitrag, setManuellerBeitrag] = useState(0);
   const [openSections, setOpenSections] = useState({ basis: true, haus: true, ausgaben: true, einnahmen: true });
+  const [ausgabenPhase, setAusgabenPhase] = useState("alle");
+  const [dragItem, setDragItem] = useState<number | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<number | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
+  const [moveMenuIdx, setMoveMenuIdx] = useState<number | null>(null);
 
   // Load data
   useEffect(() => {
@@ -120,6 +137,7 @@ export default function KalkulationPage() {
       setTeamVorlauf(kursData.team_vorlauf_tage || 1);
       setVerpflegung(kursData.verpflegung || "vp");
 
+      if (kursData.haus_id) setHausId(kursData.haus_id);
       if (kursData.start_datum && kursData.end_datum) {
         const start = new Date(kursData.start_datum);
         const end = new Date(kursData.end_datum);
@@ -128,14 +146,14 @@ export default function KalkulationPage() {
       }
 
       // Init from kalkulation
-      if (kalkData.ue_pro_nacht) setManuelleUe(Number(kalkData.ue_pro_nacht));
-      if (kalkData.vp_pro_tag) setManuelleVp(Number(kalkData.vp_pro_tag));
+      setManuelleUe(Number(kalkData.ue_pro_nacht) || 0);
+      setManuelleVp(Number(kalkData.vp_pro_tag) || 0);
       setAutoCalc(kalkData.auto_calc_beitrag !== false);
-      if (kalkData.tn_beitrag) setManuellerBeitrag(Number(kalkData.tn_beitrag));
+      setManuellerBeitrag(Number(kalkData.tn_beitrag) || 0);
 
       // Split posten
-      const a = (kalkData.posten || []).filter((p: Posten) => p.typ === "ausgabe");
-      const e = (kalkData.posten || []).filter((p: Posten) => p.typ === "einnahme");
+      const a = (kalkData.posten || []).filter((p: Posten) => p.typ === "ausgabe").map((p: Posten) => ({ ...p, betrag: Number(p.betrag || 0) }));
+      const e = (kalkData.posten || []).filter((p: Posten) => p.typ === "einnahme").map((p: Posten) => ({ ...p, betrag: Number(p.betrag || 0) }));
       setAusgaben(a);
       setEinnahmen(e);
 
@@ -150,19 +168,20 @@ export default function KalkulationPage() {
   const haus = haeuser.find(h => String(h.id) === hausId);
   const isCustom = !haus;
   const ueProNacht = haus ? Number(haus.uebernachtung) : manuelleUe;
-  const vpProTag = haus
-    ? Number(verpflegung === "vp" ? haus.vollpension : verpflegung === "hp" ? haus.halbpension : verpflegung === "sv" ? haus.selbstversorger : 0)
-    : (verpflegung === "keine" ? 0 : manuelleVp);
+  const vpProTag = verpflegung === "keine" ? 0
+    : verpflegung === "sv" ? manuelleVp
+    : haus ? Number(verpflegung === "vp" ? haus.vollpension : verpflegung === "hp" ? haus.halbpension : 0)
+    : manuelleVp;
 
-  const gesamtPersonen = tn + teamende;
-  const tnNaechte = tn * naechte;
-  const teamNaechte = teamende * (naechte + teamVorlauf);
+  const gesamtPersonen = Number(tn) + Number(teamende);
+  const tnNaechte = Number(tn) * Number(naechte);
+  const teamNaechte = Number(teamende) * (Number(naechte) + Number(teamVorlauf));
   const gesamtNaechte = tnNaechte + teamNaechte;
-  const tage = naechte + 1;
-  const teamTage = naechte + teamVorlauf + 1;
+  const tage = Number(naechte) + 1;
+  const teamTage = Number(naechte) + Number(teamVorlauf) + 1;
 
-  const kostenUe = gesamtNaechte * ueProNacht;
-  const kostenVp = (tn * tage + teamende * teamTage) * vpProTag;
+  const kostenUe = Number(gesamtNaechte) * Number(ueProNacht);
+  const kostenVp = (Number(tn) * tage + Number(teamende) * teamTage) * Number(vpProTag);
 
   const berechnetAusgaben = useMemo(() => {
     return ausgaben.map(a => {
@@ -172,13 +191,13 @@ export default function KalkulationPage() {
     });
   }, [ausgaben, kostenUe, kostenVp]);
 
-  const summeAusgaben = berechnetAusgaben.reduce((s, a) => s + a.betrag, 0);
-  const summeEinnahmenOhneTn = einnahmen.reduce((s, e) => s + e.betrag, 0);
-  const berechneterBeitrag = tn > 0 ? Math.ceil((summeAusgaben - summeEinnahmenOhneTn) / tn) : 0;
+  const summeAusgaben = berechnetAusgaben.reduce((s, a) => s + Number(a.betrag || 0), 0);
+  const summeEinnahmenOhneTn = einnahmen.reduce((s, e) => s + Number(e.betrag || 0), 0);
+  const berechneterBeitrag = Number(tn) > 0 ? Math.ceil((summeAusgaben - summeEinnahmenOhneTn) / Number(tn)) : 0;
   const effektiverBeitrag = autoCalc ? berechneterBeitrag : manuellerBeitrag;
-  const summeEinnahmen = summeEinnahmenOhneTn + (effektiverBeitrag * tn);
+  const summeEinnahmen = summeEinnahmenOhneTn + (Number(effektiverBeitrag) * Number(tn));
   const saldo = summeEinnahmen - summeAusgaben;
-  const proKopf = tn > 0 ? summeAusgaben / tn : 0;
+  const proKopf = Number(tn) > 0 ? summeAusgaben / Number(tn) : 0;
 
   // Save
   const handleSave = useCallback(async () => {
@@ -198,7 +217,7 @@ export default function KalkulationPage() {
 
       // Update kalkulation
       const allPosten = [
-        ...berechnetAusgaben.map(a => ({ ...a, typ: "ausgabe" })),
+        ...berechnetAusgaben.map(a => ({ ...a, typ: "ausgabe", phase: a.phase || "kurs" })),
         ...einnahmen.map(e => ({ ...e, typ: "einnahme" })),
       ];
 
@@ -223,6 +242,90 @@ export default function KalkulationPage() {
     }
   }, [kursId, tn, teamVorlauf, verpflegung, hausId, berechnetAusgaben, einnahmen, ueProNacht, vpProTag, effektiverBeitrag, autoCalc]);
 
+  // Generate local IDs for new items
+  function localId() { return "loc-" + Math.random().toString(36).slice(2, 8); }
+
+  // Assign items to groups based on position
+  function getGroupedAusgaben() {
+    const items = berechnetAusgaben;
+    const groups: Array<{ group: Posten | null; items: Posten[]; subtotal: number }> = [];
+    let currentGroup: { group: Posten | null; items: Posten[]; subtotal: number } = { group: null, items: [], subtotal: 0 };
+
+    for (const item of items) {
+      if (item.ist_gruppe) {
+        if (currentGroup.group !== null || currentGroup.items.length > 0) {
+          currentGroup.subtotal = currentGroup.items.reduce((s, a) => s + Number(a.betrag || 0), 0);
+          groups.push(currentGroup);
+        }
+        currentGroup = { group: item, items: [], subtotal: 0 };
+      } else {
+        currentGroup.items.push(item);
+      }
+    }
+    currentGroup.subtotal = currentGroup.items.reduce((s, a) => s + Number(a.betrag || 0), 0);
+    groups.push(currentGroup);
+    return groups;
+  }
+
+  function addGruppe() {
+    setAusgaben([...ausgaben, { typ: "ausgabe", kategorie: "sonstiges", bezeichnung: "Neue Gruppe", betrag: 0, ist_auto: false, ist_gruppe: true, phase: ausgabenPhase === "alle" ? "kurs" : ausgabenPhase }]);
+  }
+
+  function handleDragStart(idx: number) {
+    setDragItem(idx);
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    setDragOverItem(idx);
+  }
+
+  function handleDrop(idx: number) {
+    if (dragItem === null || dragItem === idx) { setDragItem(null); setDragOverItem(null); return; }
+    const items = [...ausgaben];
+    const dragged = items.splice(dragItem, 1)[0];
+    items.splice(idx > dragItem ? idx - 1 : idx, 0, dragged);
+    setAusgaben(items);
+    setDragItem(null);
+    setDragOverItem(null);
+  }
+
+  function toggleGroupCollapse(idx: number) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  }
+
+  function moveToGroup(itemIdx: number, targetGroupIdx: number | null) {
+    const items = [...ausgaben];
+    const item = items.splice(itemIdx, 1)[0];
+
+    if (targetGroupIdx === null) {
+      // Move to ungrouped (beginning)
+      items.unshift(item);
+    } else {
+      // Find the end of the target group (next group or end of list)
+      let insertAt = targetGroupIdx + 1;
+      for (let j = targetGroupIdx + 1; j < items.length; j++) {
+        if (items[j].ist_gruppe) break;
+        insertAt = j + 1;
+      }
+      items.splice(insertAt, 0, item);
+    }
+
+    setAusgaben(items);
+    setMoveMenuIdx(null);
+  }
+
+  // Get all group indices for the move menu
+  function getGroups() {
+    return ausgaben
+      .map((a, i) => ({ ...a, _idx: i }))
+      .filter(a => a.ist_gruppe);
+  }
+
   const toggle = (s: string) => setOpenSections(prev => ({ ...prev, [s]: !prev[s as keyof typeof prev] }));
 
   if (loading) {
@@ -234,7 +337,7 @@ export default function KalkulationPage() {
   }
 
   return (
-    <div>
+    <div onClick={() => moveMenuIdx !== null && setMoveMenuIdx(null)}>
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -360,6 +463,18 @@ export default function KalkulationPage() {
                   </div>
                 </div>
 
+                {verpflegung === "sv" && (
+                  <div className="mt-3">
+                    <label className="mb-1 block text-xs font-semibold text-dpsg-gray-400">Einkaufsbudget / Person / Tag (Selbstversorger)</label>
+                    <div className="flex items-center gap-2">
+                      <input type="number" value={manuelleVp} onChange={e => setManuelleVp(Number(e.target.value) || 0)} min={0} step={0.5}
+                        className="w-32 rounded-lg border border-dpsg-gray-200 px-3 py-2 text-sm font-bold focus:border-dpsg-blue focus:outline-none focus:ring-2 focus:ring-dpsg-blue/20" />
+                      <span className="text-xs text-dpsg-gray-500">EUR / Person / Tag</span>
+                    </div>
+                    <p className="text-[10px] text-dpsg-gray-400 mt-1">Typisch: 8-15 EUR pro Person und Tag für Einkauf bei Selbstverpflegung.</p>
+                  </div>
+                )}
+
                 <div className="rounded-lg bg-dpsg-gray-50 p-3 flex justify-between text-xs text-dpsg-gray-600">
                   <span>Unterkunft: {gesamtNaechte} x {ueProNacht}EUR = <strong>{fmt(kostenUe)} EUR</strong></span>
                   <span>Verpflegung: {tn * tage + teamende * teamTage} x {vpProTag}EUR = <strong>{fmt(kostenVp)} EUR</strong></span>
@@ -376,48 +491,142 @@ export default function KalkulationPage() {
                 <TrendingUp className="h-4 w-4 text-dpsg-blue" />
                 <span className="text-sm font-bold text-dpsg-gray-900">Ausgaben — {fmt(summeAusgaben)} EUR</span>
               </button>
-              <button onClick={() => setAusgaben([...ausgaben, { typ: "ausgabe", kategorie: "sonstiges", bezeichnung: "", betrag: 0, ist_auto: false }])}
-                className="flex items-center gap-1 rounded-lg bg-dpsg-blue px-3 py-1.5 text-xs font-bold text-white hover:bg-dpsg-blue-light transition-colors">
-                <Plus className="h-3.5 w-3.5" /> Position
-              </button>
+              <div className="flex gap-1.5">
+                <button onClick={addGruppe}
+                  className="flex items-center gap-1 rounded-lg bg-dpsg-gray-100 px-3 py-1.5 text-xs font-bold text-dpsg-gray-700 hover:bg-dpsg-gray-200 transition-colors">
+                  <Plus className="h-3.5 w-3.5" /> Gruppe
+                </button>
+                <button onClick={() => setAusgaben([...ausgaben, { typ: "ausgabe", kategorie: "sonstiges", bezeichnung: "", betrag: 0, ist_auto: false, phase: ausgabenPhase === "alle" ? "kurs" : ausgabenPhase }])}
+                  className="flex items-center gap-1 rounded-lg bg-dpsg-blue px-3 py-1.5 text-xs font-bold text-white hover:bg-dpsg-blue-light transition-colors">
+                  <Plus className="h-3.5 w-3.5" /> Position
+                </button>
+              </div>
             </div>
             {openSections.ausgaben && (
               <div>
                 <div className="grid grid-cols-[1fr_200px_100px_32px] gap-2 px-5 py-2 border-b border-dpsg-gray-100">
+                  {/* Phase tabs */}
+                  <div className="px-5 py-2 flex gap-1.5 border-b border-dpsg-gray-100">
+                    <button onClick={() => setAusgabenPhase("alle")}
+                      className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors ${
+                        ausgabenPhase === "alle" ? "bg-dpsg-blue text-white" : "bg-dpsg-gray-100 text-dpsg-gray-600"
+                      }`}>Alle ({berechnetAusgaben.length})</button>
+                    {AUSGABEN_PHASEN.map(p => {
+                      const count = berechnetAusgaben.filter(a => (a.phase || "kurs") === p.id).length;
+                      const sum = berechnetAusgaben.filter(a => (a.phase || "kurs") === p.id).reduce((s, a) => s + Number(a.betrag || 0), 0);
+                      return (
+                        <button key={p.id} onClick={() => setAusgabenPhase(p.id)}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-colors ${
+                            ausgabenPhase === p.id ? "bg-dpsg-blue text-white" : "bg-dpsg-gray-100 text-dpsg-gray-600"
+                          }`}>
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: ausgabenPhase === p.id ? "white" : p.color }} />
+                          {p.label} ({count}) {sum > 0 ? `${fmt(sum)}€` : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
                   {["Bezeichnung", "Kategorie", "Betrag", ""].map(h => (
                     <span key={h} className="text-[10px] font-semibold uppercase tracking-wide text-dpsg-gray-400">{h}</span>
                   ))}
                 </div>
-                {berechnetAusgaben.map((a, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_200px_100px_32px] gap-2 items-center px-5 py-2 border-b border-dpsg-gray-50 hover:bg-dpsg-gray-50 transition-colors">
-                    <div className="flex items-center gap-2">
-                      {a.ist_auto ? (
-                        <span className="text-sm text-dpsg-gray-600">{a.bezeichnung} <span className="text-xs text-dpsg-gray-400">(auto)</span></span>
-                      ) : (
-                        <input value={a.bezeichnung} onChange={e => { const n = [...ausgaben]; n[i] = { ...n[i], bezeichnung: e.target.value }; setAusgaben(n); }}
-                          className="w-full border-none bg-transparent text-sm focus:outline-none" placeholder="Bezeichnung" />
-                      )}
-                    </div>
-                    <select value={a.kategorie} onChange={e => { const n = [...ausgaben]; n[i] = { ...n[i], kategorie: e.target.value }; setAusgaben(n); }}
-                      className="rounded border border-dpsg-gray-200 px-2 py-1 text-xs text-dpsg-gray-700">
-                      {KATEGORIEN.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
-                    </select>
-                    {a.ist_auto ? (
-                      <span className="text-right text-sm font-bold text-dpsg-gray-900">{fmt(a.betrag)}</span>
-                    ) : (
-                      <input type="number" value={a.betrag} onChange={e => { const n = [...ausgaben]; n[i] = { ...n[i], betrag: Number(e.target.value) || 0 }; setAusgaben(n); }}
-                        className="w-full rounded border border-dpsg-gray-200 px-2 py-1 text-right text-sm font-bold focus:border-dpsg-blue focus:outline-none" min={0} />
-                    )}
-                    <div>
-                      {!a.ist_auto && (
-                        <button onClick={() => setAusgaben(ausgaben.filter((_, j) => j !== i))}
-                          className="text-dpsg-gray-400 hover:text-red-500 transition-colors">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                {(() => {
+                    const filtered = berechnetAusgaben
+                      .map((a, i) => ({ ...a, _idx: i }))
+                      .filter(a => ausgabenPhase === "alle" || (a.phase || "kurs") === ausgabenPhase);
+                    let groupNum = 0;
+                    let itemNum = 0;
+                    return filtered.map((a, dispIdx) => {
+                      const i = a._idx;
+                      const isDragOver = dragOverItem === i;
+                      if (a.ist_gruppe) {
+                        groupNum++;
+                        itemNum = 0;
+                        const isCollapsed = collapsedGroups.has(i);
+                        const groupItems: typeof filtered = [];
+                        for (let j = dispIdx + 1; j < filtered.length; j++) {
+                          if (filtered[j].ist_gruppe) break;
+                          groupItems.push(filtered[j]);
+                        }
+                        const subtotal = groupItems.reduce((s, x) => s + Number(x.betrag || 0), 0);
+                        return (
+                          <div key={`g-${i}`}
+                            draggable onDragStart={() => handleDragStart(i)} onDragOver={e => handleDragOver(e, i)} onDrop={() => handleDrop(i)}
+                            className={`flex items-center gap-2 px-5 py-2.5 bg-dpsg-gray-50 border-b border-dpsg-gray-200 cursor-grab ${isDragOver ? "border-t-2 border-t-dpsg-blue" : ""}`}>
+                            <GripVertical className="h-3.5 w-3.5 text-dpsg-gray-300" />
+                            <button onClick={() => toggleGroupCollapse(i)}>
+                              {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-dpsg-gray-400" /> : <ChevronDown className="h-3.5 w-3.5 text-dpsg-gray-400" />}
+                            </button>
+                            <span className="text-xs font-bold text-dpsg-blue w-6">{groupNum}.</span>
+                            <input value={a.bezeichnung} onChange={e => { const n = [...ausgaben]; n[i] = { ...n[i], bezeichnung: e.target.value }; setAusgaben(n); }}
+                              className="flex-1 bg-transparent text-sm font-bold text-dpsg-gray-900 focus:outline-none" />
+                            <span className="text-xs font-bold text-dpsg-gray-500 mr-2">{fmt(subtotal)} EUR</span>
+                            <button onClick={() => setAusgaben(ausgaben.filter((_, j) => j !== i))}
+                              className="text-dpsg-gray-300 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </div>
+                        );
+                      }
+                      let insideCollapsed = false;
+                      for (let j = dispIdx - 1; j >= 0; j--) {
+                        if (filtered[j].ist_gruppe) { insideCollapsed = collapsedGroups.has(filtered[j]._idx); break; }
+                      }
+                      if (insideCollapsed) return null;
+                      itemNum++;
+                      const nummer = groupNum > 0 ? `${groupNum}.${itemNum}` : `${itemNum}`;
+                      return (
+                        <div key={`p-${i}`}
+                          draggable onDragStart={() => handleDragStart(i)} onDragOver={e => handleDragOver(e, i)} onDrop={() => handleDrop(i)}
+                          className={`grid grid-cols-[1fr_180px_100px_56px] gap-2 items-center py-2 border-b border-dpsg-gray-50 hover:bg-dpsg-gray-50 ${isDragOver ? "border-t-2 border-t-dpsg-blue" : ""} ${groupNum > 0 ? "pl-12 pr-5" : "px-5"}`}>
+                          <div className="flex items-center gap-2">
+                            <GripVertical className="h-3 w-3 text-dpsg-gray-300 cursor-grab" />
+                            <span className="text-[10px] font-mono text-dpsg-gray-400 w-8">{nummer}</span>
+                            {a.ist_auto ? (
+                              <span className="text-sm text-dpsg-gray-600">{a.bezeichnung} <span className="text-xs text-dpsg-gray-400">(auto)</span></span>
+                            ) : (
+                              <input value={a.bezeichnung} onChange={e => { const n = [...ausgaben]; n[i] = { ...n[i], bezeichnung: e.target.value }; setAusgaben(n); }}
+                                className="w-full border-none bg-transparent text-sm focus:outline-none" placeholder="Bezeichnung" />
+                            )}
+                          </div>
+                          <select value={a.kategorie} onChange={e => { const n = [...ausgaben]; n[i] = { ...n[i], kategorie: e.target.value }; setAusgaben(n); }}
+                            className="rounded border border-dpsg-gray-200 px-2 py-1 text-xs text-dpsg-gray-700">
+                            {KATEGORIEN.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
+                          </select>
+                          {a.ist_auto ? (
+                            <span className="text-right text-sm font-bold text-dpsg-gray-900">{fmt(Number(a.betrag))}</span>
+                          ) : (
+                            <input type="number" value={a.betrag} onChange={e => { const n = [...ausgaben]; n[i] = { ...n[i], betrag: Number(e.target.value) || 0 }; setAusgaben(n); }}
+                              className="w-full rounded border border-dpsg-gray-200 px-2 py-1 text-right text-sm font-bold focus:border-dpsg-blue focus:outline-none" min={0} />
+                          )}
+                          <div className="flex items-center gap-0.5 relative">
+                            {!a.ist_auto && (
+                              <>
+                                <button onClick={e => { e.stopPropagation(); setMoveMenuIdx(moveMenuIdx === i ? null : i); }}
+                                  className="text-dpsg-gray-300 hover:text-dpsg-blue p-0.5" title="Verschieben">
+                                  <MoreVertical className="h-3.5 w-3.5" />
+                                </button>
+                                <button onClick={() => setAusgaben(ausgaben.filter((_, j) => j !== i))}
+                                  className="text-dpsg-gray-300 hover:text-red-500 p-0.5" title="Löschen">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                                {moveMenuIdx === i && (
+                                  <div className="absolute right-0 top-6 z-20 bg-white border border-dpsg-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]">
+                                    <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-dpsg-gray-400">Verschieben nach</div>
+                                    {getGroups().map(g => (
+                                      <button key={g._idx} onClick={() => moveToGroup(i, g._idx)}
+                                        className="w-full text-left px-3 py-1.5 text-xs text-dpsg-gray-700 hover:bg-dpsg-gray-50 flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded bg-dpsg-blue" />{g.bezeichnung}
+                                      </button>
+                                    ))}
+                                    <button onClick={() => moveToGroup(i, null)}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-dpsg-gray-400 hover:bg-dpsg-gray-50">Ohne Gruppe</button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 <div className="px-5 py-3 text-right border-t border-dpsg-gray-100">
                   <span className="text-sm font-bold text-dpsg-gray-900">Summe: {fmt(summeAusgaben)} EUR</span>
                 </div>
@@ -505,6 +714,21 @@ export default function KalkulationPage() {
             </div>
 
             <div className="p-5 space-y-3">
+              {/* Phase breakdown */}
+              {AUSGABEN_PHASEN.map(p => {
+                const sum = berechnetAusgaben.filter(a => (a.phase || "kurs") === p.id).reduce((s, a) => s + Number(a.betrag || 0), 0);
+                if (sum === 0) return null;
+                return (
+                  <div key={p.id} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded" style={{ background: p.color }} />
+                      <span className="text-dpsg-gray-600">{p.label}</span>
+                    </div>
+                    <span className="font-bold text-dpsg-gray-900">{fmt(sum)} EUR</span>
+                  </div>
+                );
+              })}
+              <div className="h-px bg-dpsg-gray-100 my-1" />
               {KATEGORIEN.map(k => {
                 const sum = berechnetAusgaben.filter(a => a.kategorie === k.id).reduce((s, a) => s + a.betrag, 0);
                 if (sum === 0) return null;
