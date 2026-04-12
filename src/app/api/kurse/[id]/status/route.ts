@@ -6,9 +6,9 @@ import { getKursPermissions } from "@/lib/permissions";
 const VALID_TRANSITIONS: Record<string, string[]> = {
   planung: ["ausgeschrieben"],
   ausgeschrieben: ["laufend", "planung"],
-  laufend: ["abgeschlossen"],
-  abgeschlossen: ["archiviert"],
-  archiviert: [],
+  laufend: ["abgeschlossen", "ausgeschrieben"],
+  abgeschlossen: ["archiviert", "laufend"],
+  archiviert: ["abgeschlossen"],
 };
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -37,35 +37,52 @@ export default function KursLayout({ children }: { children: React.ReactNode }) 
   const [kurs, setKurs] = useState<KursInfo | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
 
-  const STATUS_FLOW: Record<string, { next: string; label: string; color: string }> = {
-    planung: { next: "ausgeschrieben", label: "Ausschreiben", color: "bg-green-600 hover:bg-green-700" },
-    ausgeschrieben: { next: "laufend", label: "Kurs starten", color: "bg-dpsg-cyan hover:bg-dpsg-cyan/90" },
-    laufend: { next: "abgeschlossen", label: "Abschließen", color: "bg-dpsg-gray-600 hover:bg-dpsg-gray-700" },
-    abgeschlossen: { next: "archiviert", label: "Archivieren", color: "bg-dpsg-gray-400 hover:bg-dpsg-gray-500" },
-  };
-
   const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
-    planung: { label: "Planung", cls: "bg-amber-100 text-amber-700" },
-    ausgeschrieben: { label: "Ausgeschrieben", cls: "bg-green-100 text-green-700" },
-    laufend: { label: "Laufend", cls: "bg-blue-100 text-blue-700" },
-    abgeschlossen: { label: "Abgeschlossen", cls: "bg-dpsg-gray-100 text-dpsg-gray-600" },
-    archiviert: { label: "Archiviert", cls: "bg-dpsg-gray-100 text-dpsg-gray-400" },
+    planung: { label: 'Planung', cls: 'bg-amber-100 text-amber-700' },
+    ausgeschrieben: { label: 'Ausgeschrieben', cls: 'bg-green-100 text-green-700' },
+    laufend: { label: 'Laufend', cls: 'bg-blue-100 text-blue-700' },
+    abgeschlossen: { label: 'Abgeschlossen', cls: 'bg-dpsg-gray-100 text-dpsg-gray-600' },
+    archiviert: { label: 'Archiviert', cls: 'bg-dpsg-gray-100 text-dpsg-gray-500' },
   };
 
-  async function changeStatus() {
+  const STATUS_OPTIONS: Record<string, Array<{ next: string; label: string; color: string }>> = {
+    planung: [
+      { next: "ausgeschrieben", label: "Ausschreiben", color: "bg-green-600 hover:bg-green-700" },
+    ],
+    ausgeschrieben: [
+      { next: "laufend", label: "Kurs starten", color: "bg-dpsg-cyan" },
+      { next: "planung", label: "Zurück zu Planung", color: "bg-dpsg-gray-500" },
+    ],
+    laufend: [
+      { next: "abgeschlossen", label: "Abschließen", color: "bg-dpsg-blue" },
+      { next: "ausgeschrieben", label: "Zurück zu Ausgeschrieben", color: "bg-dpsg-gray-500" },
+    ],
+    abgeschlossen: [
+      { next: "archiviert", label: "Archivieren", color: "bg-dpsg-gray-600" },
+      { next: "laufend", label: "Wieder öffnen", color: "bg-dpsg-gray-500" },
+    ],
+    archiviert: [
+      { next: "abgeschlossen", label: "Wiederherstellen", color: "bg-dpsg-gray-500" },
+    ],
+  };
+
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+
+  async function changeStatus(newStatus: string) {
     if (!kurs) return;
-    const flow = STATUS_FLOW[kurs.status];
-    if (!flow) return;
-    if (!confirm(`Kurs-Status wirklich auf "${flow.next}" ändern?`)) return;
+    setShowStatusMenu(false);
     setStatusLoading(true);
     try {
       const res = await fetch(`/api/kurse/${params.id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: flow.next }),
+        body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        setKurs({ ...kurs, status: flow.next });
+        setKurs({ ...kurs, status: newStatus });
+      } else {
+        const err = await res.json();
+        alert(err.error || "Statuswechsel fehlgeschlagen");
       }
     } finally {
       setStatusLoading(false);
@@ -102,12 +119,27 @@ export default function KursLayout({ children }: { children: React.ReactNode }) 
             </div>
           {kurs && (
             <>
-              {STATUS_FLOW[kurs.status] && (
-              <button onClick={changeStatus} disabled={statusLoading}
-                className={`px-3 py-1 rounded-lg text-xs font-bold text-white transition-colors ${STATUS_FLOW[kurs.status].color} disabled:opacity-50`}>
-                {statusLoading ? "..." : STATUS_FLOW[kurs.status].label + " →"}
-              </button>
-            )}
+              {STATUS_OPTIONS[kurs.status] && STATUS_OPTIONS[kurs.status].length > 0 && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowStatusMenu(!showStatusMenu)}
+                    disabled={statusLoading}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold text-white transition-colors ${STATUS_OPTIONS[kurs.status][0].color} disabled:opacity-50`}
+                  >
+                    {statusLoading ? "..." : STATUS_OPTIONS[kurs.status][0].label}
+                  </button>
+                  {showStatusMenu && (
+                    <div className="absolute left-0 top-full mt-1 bg-white border border-dpsg-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[200px]">
+                      {STATUS_OPTIONS[kurs.status].map((opt: any) => (
+                        <button key={opt.next} onClick={() => changeStatus(opt.next)}
+                          className="w-full text-left px-3 py-2 text-xs text-dpsg-gray-700 hover:bg-dpsg-gray-50">
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="text-xs text-white/60 mt-1">
                 {kurs.ort || "Ort offen"} &middot; {kurs.start_datum ? new Date(kurs.start_datum).toLocaleDateString("de-DE") : "Datum offen"}
               </div>
