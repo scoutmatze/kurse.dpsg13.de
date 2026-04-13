@@ -254,6 +254,10 @@ export default function ProgrammPage() {
           <h2 className="text-lg font-bold text-dpsg-gray-900">Tagesplan</h2>
         </div>
         <div className="flex items-center gap-2">
+          <a href={`/kurs/${kursId}/programm/druckansicht`} target="_blank"
+            className="flex items-center gap-1.5 rounded-lg bg-dpsg-gray-100 px-3 py-2 text-xs font-bold text-dpsg-gray-700 hover:bg-dpsg-gray-200 transition-colors">
+            Druckansicht
+          </a>
           {currentTag && currentTag.blocks.length === 0 && (
             <button onClick={fillStandard} disabled={saving}
               className="flex items-center gap-1.5 rounded-lg bg-dpsg-gray-100 px-3 py-2 text-xs font-bold text-dpsg-gray-700 hover:bg-dpsg-gray-200 transition-colors">

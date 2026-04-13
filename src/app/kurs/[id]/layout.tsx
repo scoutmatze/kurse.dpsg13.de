@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import {
   Calculator, Calendar, Users, ClipboardList, UserPlus,
   FolderOpen, ArrowLeft, Shield, Settings, ChevronRight, Layers,
-  UtensilsCrossed, Building2
+  UtensilsCrossed, Building2, Package,
 } from "lucide-react";
 
 const TABS = [
@@ -18,6 +18,7 @@ const TABS = [
   { id: "aufgaben", label: "Aufgaben", icon: ClipboardList, href: "/aufgaben" },
   { id: "team", label: "Team", icon: UserPlus, href: "/team" },
   { id: "dateien", label: "Dateien", icon: FolderOpen, href: "/dateien" },
+  { id: "packliste", label: "Packliste", icon: Package, href: "/packliste" },
   { id: "einstellungen", label: "Einstellungen", icon: Settings, href: "/einstellungen" },
 ];
 
