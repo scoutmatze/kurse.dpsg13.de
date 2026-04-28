@@ -89,7 +89,10 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-        <p className="text-xs mt-8 text-center text-dpsg-gray-400">Deutsche Pfadfinder*innenschaft Sankt Georg &middot; Gut Pfad!</p>
+        <div className="mt-4 text-center">
+          <a href="/pin-reset" className="text-xs text-dpsg-gray-400 hover:text-dpsg-blue underline">PIN vergessen?</a>
+        </div>
+        <p className="text-xs mt-4 text-center text-dpsg-gray-400">Deutsche Pfadfinder*innenschaft Sankt Georg &middot; Gut Pfad!</p>
       </div>
     </div>
   );

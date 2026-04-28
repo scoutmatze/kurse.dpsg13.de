@@ -25,6 +25,8 @@ export default function BenutzerPage() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ email: "", name: "", pin: "", role: "user" });
+  const [resetPinId, setResetPinId] = useState<number | null>(null);
+  const [newPin, setNewPin] = useState("");
   const router = useRouter();
 
   useEffect(() => { load(); }, []);
@@ -79,7 +81,7 @@ export default function BenutzerPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-dpsg-gray-100 bg-dpsg-gray-50">
-                {["Name", "E-Mail", "Rolle", "Erstellt"].map(h => (
+                {["Name", "E-Mail", "Rolle", "Erstellt", "PIN"].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-dpsg-gray-400">{h}</th>
                 ))}
               </tr>

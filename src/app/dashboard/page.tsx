@@ -261,7 +261,7 @@ export default function DashboardPage() {
                       <div>
                         <div className="text-sm font-bold text-dpsg-gray-900">{kurs.name}</div>
                         <div className="text-xs text-dpsg-gray-500">
-                          {kurs.ort || "Ort offen"} &middot; {formatDate(kurs.start_datum)} \u2014 {formatDate(kurs.end_datum)}
+                          {kurs.ort || "Ort offen"} &middot; {formatDate(kurs.start_datum)} — {formatDate(kurs.end_datum)}
                         </div>
                       </div>
                     </div>

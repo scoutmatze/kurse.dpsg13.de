@@ -142,7 +142,7 @@ export default function KursLayout({ children }: { children: React.ReactNode }) 
                 </div>
               )}
               <div className="text-xs text-white/60 mt-1">
-                {kurs.ort || "Ort offen"} &middot; {kurs.start_datum ? new Date(kurs.start_datum).toLocaleDateString("de-DE") : "Datum offen"}
+                {kurs.ort || "Ort offen"} &middot; {kurs.start_datum && kurs.end_datum ? `${new Date(kurs.start_datum).toLocaleDateString("de-DE")} \u2013 ${new Date(kurs.end_datum).toLocaleDateString("de-DE")}` : kurs.start_datum ? new Date(kurs.start_datum).toLocaleDateString("de-DE") : "Datum offen"}
               </div>
             </>
           )}

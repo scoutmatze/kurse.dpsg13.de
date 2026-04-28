@@ -33,7 +33,7 @@ export default function EinstellungenPage() {
   useEffect(() => {
     fetch(`/api/kurse/${kursId}`)
       .then(r => r.json())
-      .then(setKurs)
+      .then(d => setKurs({ ...d, start_datum: (d.start_datum || "").slice(0, 10), end_datum: (d.end_datum || "").slice(0, 10) }))
       .finally(() => setLoading(false));
   }, [kursId]);
 
@@ -44,10 +44,14 @@ export default function EinstellungenPage() {
       await fetch(`/api/kurse/${kursId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(kurs),
+        body: JSON.stringify({
+          ...kurs,
+          start_datum: kurs.start_datum || null,
+          end_datum: kurs.end_datum || null,
+        }),
       });
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => setSaved(false), 2000); window.location.reload();
     } finally {
       setSaving(false);
     }
