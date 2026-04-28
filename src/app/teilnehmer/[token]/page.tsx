@@ -66,6 +66,7 @@ export default function TeilnehmerPortal() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("info");
   const [showFgAdd, setShowFgAdd] = useState(false);
+  const [packliste, setPackliste] = useState<Array<{id: number; titel: string; kategorie: string; pflicht: boolean}>>([]);
   const [newFg, setNewFg] = useState({
     richtung: "hin", abfahrtsort: "", plaetze_gesamt: 4, kontakt_name: "", kontakt_telefon: "",
   });
@@ -73,8 +74,10 @@ export default function TeilnehmerPortal() {
   useEffect(() => {
     fetch(`/api/tn-portal/${token}`)
       .then(r => r.ok ? r.json() : r.json().then(d => { throw new Error(d.error); }))
-      .then(setData)
-      .catch(e => setError(e.message))
+      .then(d => {
+        setData(d);
+        fetch("/api/packliste/" + d.kurs.id).then(r => r.ok ? r.json() : []).then(setPackliste).catch(() => {});
+      }).catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -150,6 +153,7 @@ export default function TeilnehmerPortal() {
             { id: "info", label: "Infos" },
             { id: "programm", label: "Programm" },
             { id: "fahrgemeinschaften", label: "Fahrgemeinschaften" },
+            { id: "packliste", label: "Packliste" },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
@@ -280,6 +284,35 @@ export default function TeilnehmerPortal() {
                     className="rounded-lg bg-dpsg-blue px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">Anbieten</button>
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+                {activeTab === "packliste" && (
+          <div className="space-y-3">
+            {packliste.length === 0 ? (
+              <div className="rounded-xl border border-dpsg-gray-200 bg-white shadow-sm p-8 text-center">
+                <p className="text-sm text-dpsg-gray-400">Noch keine Packliste vorhanden.</p>
+              </div>
+            ) : (
+              (() => {
+                const kats = [...new Set(packliste.map(i => i.kategorie))].sort();
+                return kats.map(kat => (
+                  <div key={kat} className="rounded-xl border border-dpsg-gray-200 bg-white shadow-sm overflow-hidden">
+                    <div className="bg-dpsg-gray-50 px-4 py-2 border-b border-dpsg-gray-100">
+                      <span className="text-xs font-bold text-dpsg-gray-900">{kat}</span>
+                    </div>
+                    <div className="divide-y divide-dpsg-gray-50">
+                      {packliste.filter(i => i.kategorie === kat).map(item => (
+                        <div key={item.id} className="flex items-center gap-2 px-4 py-2">
+                          <span className="text-sm text-dpsg-gray-800">{item.titel}</span>
+                          {item.pflicht && <span className="text-[10px] font-bold text-dpsg-blue">Pflicht</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()
             )}
           </div>
         )}

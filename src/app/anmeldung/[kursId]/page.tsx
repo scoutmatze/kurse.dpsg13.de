@@ -44,7 +44,7 @@ export default function AnmeldungPage() {
 
   const [form, setForm] = useState({
     vorname: "", nachname: "", email: "", telefon: "",
-    geburtsdatum: "", stamm: "", bezirk: "", dioezese: "München und Freising",
+    geburtsdatum: "", stamm: "", bezirk: "", dioezese: "München und Freising", bundesland: "Bayern",
     strasse: "", plz: "", ort_adresse: "",
     ernaehrung: "normal", allergien: "", unvertraeglichkeiten: "",
     efz_vorhanden: false, efz_datum: "",
@@ -75,7 +75,7 @@ export default function AnmeldungPage() {
       const res = await fetch(`/api/anmeldung/${kursId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -250,7 +250,16 @@ export default function AnmeldungPage() {
                   </div>
                 </div>
                 <div className="h-px bg-dpsg-gray-100 my-2" />
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-dpsg-gray-600">Bundesland</label>
+                    <select value={form.bundesland} onChange={e => updateForm("bundesland", e.target.value)}
+                      className="w-full rounded-lg border border-dpsg-gray-200 px-3 py-2 text-sm focus:border-dpsg-blue focus:outline-none focus:ring-2 focus:ring-dpsg-blue/20">
+                      {["Bayern", "Baden-Württemberg", "Berlin", "Brandenburg", "Bremen", "Hamburg", "Hessen", "Mecklenburg-Vorpommern", "Niedersachsen", "Nordrhein-Westfalen", "Rheinland-Pfalz", "Saarland", "Sachsen", "Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen"].map(bl => (
+                        <option key={bl} value={bl}>{bl}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-dpsg-gray-600">Stamm</label>
                     <input value={form.stamm} onChange={e => updateForm("stamm", e.target.value)}
