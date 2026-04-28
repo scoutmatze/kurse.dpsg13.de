@@ -172,7 +172,7 @@ export default function KursLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-6 py-6" onClick={() => setShowStatusMenu(false)}>
         {children}
       </div>
 

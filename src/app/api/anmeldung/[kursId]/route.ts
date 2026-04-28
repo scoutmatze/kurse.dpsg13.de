@@ -69,15 +69,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ kur
   const result = await query(
     `INSERT INTO anmeldungen (kurs_id, vorname, nachname, email, telefon, geburtsdatum,
      stamm, bezirk, dioezese, strasse, plz, ort, ernaehrung, allergien, unvertraeglichkeiten,
-     efz_vorhanden, efz_datum, agb_akzeptiert, datenschutz_akzeptiert, foto_erlaubnis, anmerkungen, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+     efz_vorhanden, efz_datum, agb_akzeptiert, datenschutz_akzeptiert, foto_erlaubnis, anmerkungen, bundesland, status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$23)
      RETURNING id, status`,
     [kursId, body.vorname, body.nachname, body.email.toLowerCase(), body.telefon,
      body.geburtsdatum || null, body.stamm, body.bezirk, body.dioezese,
      body.strasse, body.plz, body.ort_adresse, body.ernaehrung || "normal",
      body.allergien, body.unvertraeglichkeiten, body.efz_vorhanden || false,
      body.efz_datum || null, body.agb_akzeptiert, body.datenschutz_akzeptiert,
-     body.foto_erlaubnis || false, body.anmerkungen, status]
+     body.foto_erlaubnis || false, body.anmerkungen, body.bundesland || null, status]
   );
 
   const anmeldungId = result.rows[0].id;

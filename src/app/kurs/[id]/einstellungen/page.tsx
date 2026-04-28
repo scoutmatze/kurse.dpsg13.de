@@ -29,6 +29,36 @@ export default function EinstellungenPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [todoistConnected, setTodoistConnected] = useState(false);
+  const [todoistLoading, setTodoistLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/todoist/status").then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setTodoistConnected(d.connected); })
+      .finally(() => setTodoistLoading(false));
+  }, []);
+
+  async function syncTodoist() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/todoist/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kurs_id: kursId }),
+      });
+      const data = await res.json();
+      if (res.ok) setSyncResult(`${data.synced} Aufgaben synchronisiert`);
+      else setSyncResult(data.error || "Fehler");
+    } finally { setSyncing(false); }
+  }
+
+  async function disconnectTodoist() {
+    await fetch("/api/todoist/status", { method: "DELETE" });
+    setTodoistConnected(false);
+  }
 
   useEffect(() => {
     fetch(`/api/kurse/${kursId}`)
@@ -184,6 +214,38 @@ export default function EinstellungenPage() {
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 Kurs muss erst ausgeschrieben werden um den Anmeldelink zu aktivieren.
+              </div>
+            )}
+          </div>
+
+          {/* Todoist */}
+          <div className="rounded-xl border border-dpsg-gray-200 bg-white shadow-sm p-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-dpsg-gray-400 mb-2">Todoist</div>
+            {todoistLoading ? (
+              <div className="text-xs text-dpsg-gray-400">Laden...</div>
+            ) : todoistConnected ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-sm text-green-700 font-semibold">Verbunden</span>
+                </div>
+                <button onClick={syncTodoist} disabled={syncing}
+                  className="w-full rounded-lg bg-dpsg-blue px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+                  {syncing ? "Synchronisiert..." : "Aufgaben syncen"}
+                </button>
+                {syncResult && <div className="text-xs text-dpsg-gray-600">{syncResult}</div>}
+                <button onClick={disconnectTodoist}
+                  className="w-full rounded-lg border border-dpsg-gray-200 px-3 py-2 text-xs text-dpsg-gray-500 hover:text-red-600 hover:border-red-200">
+                  Trennen
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-dpsg-gray-500">Verbinde deinen Todoist-Account um Aufgaben zu synchronisieren.</p>
+                <a href="/api/todoist"
+                  className="block w-full rounded-lg bg-dpsg-red px-3 py-2 text-xs font-bold text-white text-center hover:bg-dpsg-red-light">
+                  Mit Todoist verbinden
+                </a>
               </div>
             )}
           </div>

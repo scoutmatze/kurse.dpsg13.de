@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, LogOut, Calculator, Calendar, Users, ClipboardList,
+  Plus, LogOut, Calculator, Calendar, Users, ClipboardList, Menu,
   Shield, GraduationCap, ChevronRight, Settings, X, Loader2,
   UserPlus, Copy, AlertTriangle, TrendingUp, Check
 } from "lucide-react";
@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [cloneOpts, setCloneOpts] = useState({ clone_aufgaben: true, clone_team: true, clone_kalkulation: true, clone_programm: true });
   const [cloning, setCloning] = useState(false);
   const [stats, setStats] = useState<any>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [todoistConnected, setTodoistConnected] = useState(false);
 
   useEffect(() => {
@@ -129,7 +130,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-dpsg-beige-50 flex">
       {/* Sidebar */}
-      <aside className="w-60 bg-white border-r border-dpsg-gray-200 flex flex-col min-h-screen">
+      <aside className={`w-60 bg-white border-r border-dpsg-gray-200 flex flex-col min-h-screen fixed lg:static z-30 transition-transform ${showSidebar ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="px-5 py-5 border-b border-dpsg-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-dpsg-blue flex items-center justify-center">
@@ -176,10 +177,14 @@ export default function DashboardPage() {
       {/* Main */}
       <main className="flex-1 px-8 py-8">
         <div className="flex items-center justify-between mb-6">
-          <div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setShowSidebar(!showSidebar)} className="lg:hidden text-dpsg-gray-600">
+              <Menu className="h-5 w-5" />
+            </button>
+            <div>
             <h1 className="text-2xl font-bold text-dpsg-gray-900">Kurse</h1>
             <p className="text-sm text-dpsg-gray-500">{kurse.length} Kurs{kurse.length !== 1 ? "e" : ""} angelegt</p>
-          </div>
+          </div></div>
           <button onClick={() => setShowModal(true)}
             className="flex items-center gap-2 rounded-lg bg-dpsg-blue px-4 py-2.5 text-sm font-bold text-white hover:bg-dpsg-blue-light transition-colors">
             <Plus className="h-4 w-4" /> Neuer Kurs
@@ -228,6 +233,26 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-xs text-dpsg-gray-400">Keiner geplant</div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Letzte Anmeldungen */}
+        {stats && stats.letzte_anmeldungen && stats.letzte_anmeldungen.length > 0 && (
+          <div className="rounded-xl border border-dpsg-gray-200 bg-white shadow-sm mb-6">
+            <div className="border-b border-dpsg-gray-100 bg-dpsg-gray-50 px-5 py-3 rounded-t-xl">
+              <span className="text-xs font-semibold uppercase tracking-wide text-dpsg-gray-400">Letzte Anmeldungen</span>
+            </div>
+            <div className="divide-y divide-dpsg-gray-50">
+              {stats.letzte_anmeldungen.map((a: any, i: number) => (
+                <div key={i} className="flex items-center justify-between px-5 py-2.5">
+                  <div>
+                    <span className="text-sm font-semibold text-dpsg-gray-900">{a.vorname} {a.nachname}</span>
+                    <span className="text-xs text-dpsg-gray-400 ml-2">{a.kurs_name}</span>
+                  </div>
+                  <span className="text-xs text-dpsg-gray-400">{new Date(a.created_at).toLocaleDateString("de-DE")}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
