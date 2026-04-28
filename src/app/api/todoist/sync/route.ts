@@ -22,16 +22,17 @@ export async function POST(req: NextRequest) {
   // Create or find Todoist project
   let projectId: string | null = null;
   try {
-    const projectsRes = await fetch("https://api.todoist.com/rest/v2/projects", {
+    const projectsRes = await fetch("https://api.todoist.com/api/v1/projects", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    const projects = await projectsRes.json();
+    const projectsData = await projectsRes.json();
+    const projects = projectsData.results || projectsData;
     const existing = projects.find((p: any) => p.name === `DPSG: ${kursName}`);
 
     if (existing) {
       projectId = existing.id;
     } else {
-      const createRes = await fetch("https://api.todoist.com/rest/v2/projects", {
+      const createRes = await fetch("https://api.todoist.com/api/v1/projects", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -42,8 +43,9 @@ export async function POST(req: NextRequest) {
       const newProject = await createRes.json();
       projectId = newProject.id;
     }
-  } catch (err) {
-    return NextResponse.json({ error: "Todoist-Verbindung fehlgeschlagen" }, { status: 502 });
+  } catch (err: any) {
+    console.error("Todoist project error:", err?.message || err);
+    return NextResponse.json({ error: "Todoist-Verbindung fehlgeschlagen", detail: err?.message }, { status: 502 });
   }
 
   // Get aufgaben to sync
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
     try {
       const priority = ({ niedrig: 1, mittel: 2, hoch: 3, dringend: 4 } as Record<string, number>)[a.prioritaet] || 2;
 
-      const taskRes = await fetch("https://api.todoist.com/rest/v2/tasks", {
+      const taskRes = await fetch("https://api.todoist.com/api/v1/tasks", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -85,7 +87,7 @@ export async function POST(req: NextRequest) {
 
         for (const sub of subs.rows) {
           try {
-            const subRes = await fetch("https://api.todoist.com/rest/v2/tasks", {
+            const subRes = await fetch("https://api.todoist.com/api/v1/tasks", {
               method: "POST",
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
               body: JSON.stringify({

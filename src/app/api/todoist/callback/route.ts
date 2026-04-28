@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
+function getBase(req: NextRequest) {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "kurse.dpsgonline.de";
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  return proto + "://" + host;
+}
+
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
@@ -35,7 +41,7 @@ export async function GET(req: NextRequest) {
       [access_token, userId]
     );
 
-    return NextResponse.redirect(new URL("/dashboard?todoist=connected", req.url));
+    return NextResponse.redirect(new URL("/dashboard?todoist=connected", getBase(req)));
   } catch (err) {
     console.error("Todoist callback error:", err);
     return NextResponse.redirect(new URL("/dashboard?error=todoist_failed", req.url));
