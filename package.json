@@ -17,7 +17,8 @@
     "jose": "^6.0.11",
     "lucide-react": "^0.475.0",
     "next-auth": "^5.0.0-beta.25",
-    "@auth/core": "^0.37.4"
+    "@auth/core": "^0.37.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

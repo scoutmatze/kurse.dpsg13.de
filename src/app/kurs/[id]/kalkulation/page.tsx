@@ -3,6 +3,7 @@
 import {
   useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { exportKalkulationExcel } from "@/lib/kalkulation-export";
 import {
   Calculator, Plus, Trash2, ChevronDown, ChevronRight, Euro,
   Users, Home, UtensilsCrossed, Bus, Package, FileText, Download,
@@ -119,6 +120,7 @@ export default function KalkulationPage() {
   const [dragOverItem, setDragOverItem] = useState<number | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
   const [moveMenuIdx, setMoveMenuIdx] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -242,6 +244,78 @@ export default function KalkulationPage() {
     }
   }, [kursId, tn, teamVorlauf, verpflegung, hausId, berechnetAusgaben, einnahmen, ueProNacht, vpProTag, effektiverBeitrag, autoCalc]);
 
+  // Excel-Export der aktuell angezeigten Kalkulation
+  const handleExcelExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const katLabel = (id: string) =>
+        KATEGORIEN.find(k => k.id === id)?.label ?? id ?? "";
+      const einLabel = (id: string) =>
+        EINNAHMEN_KAT.find(k => k.id === id)?.label ?? id ?? "";
+      const phaseLabel = (id?: string) =>
+        AUSGABEN_PHASEN.find(p => p.id === (id || "kurs"))?.label ?? (id || "");
+      const VERPFLEGUNG_LABEL: Record<string, string> = {
+        vp: "Vollpension",
+        hp: "Halbpension",
+        sv: "Selbstversorger",
+        keine: "Keine",
+      };
+      const datum = (d: string | null) =>
+        d ? new Date(d).toLocaleDateString("de-DE") : "";
+      const zeitraum =
+        kurs?.start_datum && kurs?.end_datum
+          ? `${datum(kurs.start_datum)} – ${datum(kurs.end_datum)}`
+          : "";
+
+      await exportKalkulationExcel({
+        kursName: kurs?.name || "Kurs",
+        zeitraum,
+        hausName: haus ? `${haus.name} (${haus.region})` : "Eigene Sätze",
+        verpflegung: VERPFLEGUNG_LABEL[verpflegung] ?? verpflegung,
+        tn: Number(tn),
+        teamende: Number(teamende),
+        naechte: Number(naechte),
+        teamVorlauf: Number(teamVorlauf),
+        ueProNacht: Number(ueProNacht),
+        vpProTag: Number(vpProTag),
+        tnNaechte,
+        teamNaechte,
+        gesamtNaechte,
+        kostenUe,
+        kostenVp,
+        ausgaben: berechnetAusgaben.map(a => ({
+          nummer: a.nummer ?? "",
+          ist_gruppe: Boolean(a.ist_gruppe),
+          phase: phaseLabel(a.phase),
+          kategorie: katLabel(a.kategorie),
+          bezeichnung: a.bezeichnung,
+          betrag: Number(a.betrag || 0),
+        })),
+        einnahmen: einnahmen.map(e => ({
+          phase: "",
+          kategorie: einLabel(e.kategorie),
+          bezeichnung: e.bezeichnung,
+          betrag: Number(e.betrag || 0),
+        })),
+        summeAusgaben,
+        summeEinnahmenOhneTn,
+        effektiverBeitrag: Number(effektiverBeitrag),
+        autoCalc,
+        summeEinnahmen,
+        saldo,
+        proKopf,
+      });
+    } catch (err) {
+      console.error("Excel-Export fehlgeschlagen:", err);
+      alert("Excel-Export fehlgeschlagen. Bitte erneut versuchen.");
+    } finally {
+      setExporting(false);
+    }
+  }, [kurs, haus, verpflegung, tn, teamende, naechte, teamVorlauf, ueProNacht, vpProTag,
+      tnNaechte, teamNaechte, gesamtNaechte, kostenUe, kostenVp, berechnetAusgaben,
+      einnahmen, summeAusgaben, summeEinnahmenOhneTn, effektiverBeitrag, autoCalc,
+      summeEinnahmen, saldo, proKopf]);
+
   // Generate local IDs for new items
   function localId() { return "loc-" + Math.random().toString(36).slice(2, 8); }
 
@@ -345,8 +419,10 @@ export default function KalkulationPage() {
           <h2 className="text-lg font-bold text-dpsg-gray-900">Kalkulation & Budget</h2>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 rounded-lg bg-dpsg-gray-100 px-3 py-2 text-xs font-bold text-dpsg-gray-700 hover:bg-dpsg-gray-200 transition-colors">
-            <Download className="h-3.5 w-3.5" /> Excel
+          <button onClick={handleExcelExport} disabled={exporting}
+            className="flex items-center gap-2 rounded-lg bg-dpsg-gray-100 px-3 py-2 text-xs font-bold text-dpsg-gray-700 hover:bg-dpsg-gray-200 transition-colors disabled:opacity-50">
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {exporting ? "Erstellt..." : "Excel"}
           </button>
           <button onClick={handleSave} disabled={saving}
             className="flex items-center gap-2 rounded-lg bg-dpsg-blue px-4 py-2 text-sm font-bold text-white hover:bg-dpsg-blue-light transition-colors disabled:opacity-50">
